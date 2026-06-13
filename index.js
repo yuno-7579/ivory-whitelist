@@ -17,6 +17,7 @@ const GUILD_ID = process.env.GUILD_ID;
 const CATEGORY_ID = process.env.CATEGORY_ID; // الكاتيجوري اللي هتفتح فيها التيكتات
 const CITIZEN_ROLE_ID = process.env.CITIZEN_ROLE_ID; // رول Citizen بعد القبول
 const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID; // رول الأدمن اللي يشوف التيكتات
+const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID; // روم اللوجز — يبعت فيه الإجابات + النتيجة
 
 // ✅ قاعدة البيانات
 const DB_PATH = './database.json';
@@ -164,6 +165,30 @@ function buildResultEmbed(accepted) {
     }
 }
 
+// ✅ بناء Embed اللوج — الإجابات كاملة + النتيجة (يتبعت في روم اللوجز)
+function buildLogEmbed(member, answers, accepted, decidedBy) {
+    const embed = new EmbedBuilder()
+        .setColor(accepted ? '#00CC44' : '#CC0000')
+        .setTitle(accepted ? '✅ تم قبول طلب Whitelist' : '❌ تم رفض طلب Whitelist')
+        .setDescription(
+            `**اللاعب:** <@${member.id}> (${member.user.tag})\n` +
+            `**القرار بواسطة:** <@${decidedBy}>\n` +
+            `**الحالة:** ${accepted ? 'مقبول ✅' : 'مرفوض ❌'}`
+        )
+        .setThumbnail(member.user.displayAvatarURL())
+        .setFooter({ text: 'IVORY RP | سجل المقابلات' })
+        .setTimestamp();
+
+    QUESTIONS.forEach((q, i) => {
+        embed.addFields({
+            name: q.title,
+            value: answers[i] ? `\`\`${answers[i]}\`\`` : '`لم يتم الرد`'
+        });
+    });
+
+    return embed;
+}
+
 // ✅ التفاعلات
 client.on('interactionCreate', async (interaction) => {
 
@@ -284,6 +309,18 @@ client.on('interactionCreate', async (interaction) => {
 
         await interaction.update({ components: [disabledRow] });
         await interaction.followUp({ content: `${resultText} بواسطة <@${interaction.user.id}>` });
+
+        // ✅ إرسال اللوج (الإجابات + النتيجة) لروم اللوجز
+        if (LOG_CHANNEL_ID) {
+            try {
+                const logChannel = await client.channels.fetch(LOG_CHANNEL_ID);
+                const member = await interaction.guild.members.fetch(targetUserId);
+                const logEmbed = buildLogEmbed(member, ticketData.answers || [], accepted, interaction.user.id);
+                await logChannel.send({ embeds: [logEmbed] });
+            } catch (err) {
+                console.error('❌ خطأ في إرسال اللوج:', err);
+            }
+        }
 
         // تحديث الحالة
         ticketData.status = accepted ? 'accepted' : 'rejected';
