@@ -10,13 +10,13 @@ const {
 } = require('discord.js');
 const fs = require('fs');
 
-// ✅ الإعدادات — غيّر القيم دي
-const TOKEN = 'YOUR_BOT_TOKEN';
-const CLIENT_ID = 'YOUR_CLIENT_ID';
-const GUILD_ID = 'YOUR_SERVER_ID';
-const CATEGORY_ID = 'YOUR_TICKETS_CATEGORY_ID'; // الكاتيجوري اللي هتفتح فيها التيكتات
-const CITIZEN_ROLE_ID = 'YOUR_CITIZEN_ROLE_ID'; // رول Citizen بعد القبول
-const ADMIN_ROLE_ID = 'YOUR_ADMIN_ROLE_ID'; // رول الأدمن اللي يشوف التيكتات
+// ✅ الإعدادات — هتيجي من Environment Variables (Railway)
+const TOKEN = process.env.TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
+const GUILD_ID = process.env.GUILD_ID;
+const CATEGORY_ID = process.env.CATEGORY_ID; // الكاتيجوري اللي هتفتح فيها التيكتات
+const CITIZEN_ROLE_ID = process.env.CITIZEN_ROLE_ID; // رول Citizen بعد القبول
+const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID; // رول الأدمن اللي يشوف التيكتات
 
 // ✅ قاعدة البيانات
 const DB_PATH = './database.json';
