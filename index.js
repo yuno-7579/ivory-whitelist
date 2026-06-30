@@ -109,14 +109,14 @@ client.once('ready', async () => {
 function buildWelcomeEmbed() {
     return new EmbedBuilder()
         .setColor('#CC0000')
-        .setTitle('Welcome to IVORY RP Roleplay Server')
+        .setTitle('Welcome to B3R RP Roleplay Server')
         .setDescription(
             '**We are glad to have you here**\n\n' +
             'Ready to begin your whitelist interview? Click the button below to start your interview ticket. ' +
             'A member of our admin team will review your answers and guide you through the next steps.\n\n' +
             'Please make sure you have read the server rules before starting.'
         )
-        .setFooter({ text: '🪪 IVORY RP' });
+        .setFooter({ text: '🪪 B3R RP' });
 }
 
 // ✅ بناء Embed سؤال
@@ -126,7 +126,7 @@ function buildQuestionEmbed(index) {
         .setColor('#CC0000')
         .setTitle(q.title)
         .setDescription(q.text)
-        .setFooter({ text: `السؤال ${index + 1} من ${QUESTIONS.length} | IVORY RP` });
+        .setFooter({ text: `السؤال ${index + 1} من ${QUESTIONS.length} | B3R RP` });
 }
 
 // ✅ بناء Embed نتيجة المقابلة (تجميع الإجابات للأدمن)
@@ -135,7 +135,7 @@ function buildSummaryEmbed(member, answers) {
         .setColor('#CC0000')
         .setTitle('📋 ملخص إجابات المقابلة')
         .setDescription(`اللاعب: <@${member.id}>\nمرر على الإجابات وقرر القبول أو الرفض 👇`)
-        .setFooter({ text: 'IVORY RP | نظام Whitelist' })
+        .setFooter({ text: 'B3R RP | نظام Whitelist' })
         .setTimestamp();
 
     QUESTIONS.forEach((q, i) => {
@@ -155,20 +155,20 @@ function buildResultEmbed(accepted) {
             .setColor('#00CC44')
             .setTitle('✅ تم قبول طلبك!')
             .setDescription(
-                'تهانينا! تم قبول طلب الـ Whitelist بتاعك في **IVORY RP**.\n\n' +
+                'تهانينا! تم قبول طلب الـ Whitelist بتاعك في **B3R RP**.\n\n' +
                 'تم إعطاؤك رتبة **Citizen** وأصبح بإمكانك الانضمام للسيرفر والبدء في تجربة الرولبلاي 🎉'
             )
-            .setFooter({ text: 'IVORY RP | نظام Whitelist' })
+            .setFooter({ text: 'B3R RP | نظام Whitelist' })
             .setTimestamp();
     } else {
         return new EmbedBuilder()
             .setColor('#CC0000')
             .setTitle('❌ تم رفض طلبك')
             .setDescription(
-                'نأسف، تم رفض طلب الـ Whitelist بتاعك في **IVORY RP**.\n\n' +
+                'نأسف، تم رفض طلب الـ Whitelist بتاعك في **B3R RP**.\n\n' +
                 'يمكنك مراجعة قوانين السيرفر وإعادة التقديم بعد فترة من خلال فتح مقابلة جديدة.'
             )
-            .setFooter({ text: 'IVORY RP | نظام Whitelist' })
+            .setFooter({ text: 'B3R RP | نظام Whitelist' })
             .setTimestamp();
     }
 }
@@ -184,7 +184,7 @@ function buildLogEmbed(member, answers, accepted, decidedBy) {
             `**الحالة:** ${accepted ? 'مقبول ✅' : 'مرفوض ❌'}`
         )
         .setThumbnail(member.user.displayAvatarURL())
-        .setFooter({ text: 'IVORY RP | سجل المقابلات' })
+        .setFooter({ text: 'B3R RP | سجل المقابلات' })
         .setTimestamp();
 
     QUESTIONS.forEach((q, i) => {
