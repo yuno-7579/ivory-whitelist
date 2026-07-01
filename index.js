@@ -91,7 +91,16 @@ const commands = [
     new SlashCommandBuilder()
         .setName('whitelist-setup')
         .setDescription('إنشاء رسالة بدء المقابلة (للأدمن فقط)')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    new SlashCommandBuilder()
+        .setName('whitelist-reset')
+        .setDescription('تصفير حالة تيكت يوزر معين يدوياً (للأدمن فقط)')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+        .addUserOption(option =>
+            option.setName('user')
+                .setDescription('اليوزر اللي هتصفّر حالته')
+                .setRequired(true)
+        )
 ];
 
 client.once('ready', async () => {
@@ -215,6 +224,23 @@ client.on('interactionCreate', async (interaction) => {
         return;
     }
 
+    // ─── SLASH COMMAND: /whitelist-reset ──────────
+    if (interaction.isChatInputCommand() && interaction.commandName === 'whitelist-reset') {
+        const targetUser = interaction.options.getUser('user');
+        const db = loadDB();
+
+        if (!db[targetUser.id]) {
+            return interaction.reply({ content: `⚠️ مفيش تيكت محفوظ لـ <@${targetUser.id}> أصلاً.`, ephemeral: true });
+        }
+
+        const oldChannelId = db[targetUser.id].channelId;
+        delete db[targetUser.id];
+        saveDB(db);
+        activeInterviews.delete(oldChannelId);
+
+        return interaction.reply({ content: `✅ تم تصفير حالة <@${targetUser.id}>، يقدر يفتح تيكت جديد دلوقتي.`, ephemeral: true });
+    }
+
     // ─── BUTTON: Start Interview ──────────────────
     if (interaction.isButton() && interaction.customId === 'start_interview') {
         const db = loadDB();
@@ -222,10 +248,20 @@ client.on('interactionCreate', async (interaction) => {
         // تحقق لو عنده تيكت مفتوح خلاص
         const existing = db[interaction.user.id];
         if (existing && existing.status === 'open') {
-            return interaction.reply({
-                content: `⚠️ عندك تيكت مقابلة مفتوح بالفعل: <#${existing.channelId}>`,
-                ephemeral: true
-            });
+            // ✅ نتأكد إن الروم لسه موجود فعلاً (مش اتمسح يدوي بالغلط)
+            const channelStillExists = interaction.guild.channels.cache.has(existing.channelId)
+                || await interaction.guild.channels.fetch(existing.channelId).catch(() => null);
+
+            if (channelStillExists) {
+                return interaction.reply({
+                    content: `⚠️ عندك تيكت مقابلة مفتوح بالفعل: <#${existing.channelId}>`,
+                    ephemeral: true
+                });
+            }
+            // الروم مش موجود (اتمسح بالغلط) — نمسح الحالة القديمة ونكمل عادي
+            delete db[interaction.user.id];
+            activeInterviews.delete(existing.channelId);
+            saveDB(db);
         }
 
         await interaction.deferReply({ ephemeral: true });
