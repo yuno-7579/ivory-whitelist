@@ -155,8 +155,8 @@ function buildResultEmbed(accepted) {
             .setColor('#00CC44')
             .setTitle('✅ تم قبول طلبك!')
             .setDescription(
-                'تهانينا! تم قبول طلب الـ Whitelist بتاعك في **B3R RP**.\n\n' +
-                'تم إعطاؤك رتبة **Citizen** وأصبح بإمكانك الانضمام للسيرفر والبدء في تجربة الرولبلاي 🎉'
+                'مبروك تم قبولك مبدأياً في مدينة **B3R RP**.\n\n' +
+                'يمكنك الانتظار إلى أقرب مقابلة صوتية 🎉'
             )
             .setFooter({ text: 'B3R RP | نظام Whitelist' })
             .setTimestamp();
@@ -393,4 +393,5 @@ client.on('messageCreate', async (message) => {
 });
 
 client.login(TOKEN);
+
 
