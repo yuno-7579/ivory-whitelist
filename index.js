@@ -109,18 +109,28 @@ client.once('ready', async () => {
     }
 });
 
-// ✅ بناء Embed رسالة البدء (شبيه بالصورة)
-function buildWelcomeEmbed() {
-    return new EmbedBuilder()
+// ✅ بناء Embed رسالة البدء — منظمة بعربي بالكامل
+function buildWelcomeEmbed(guild) {
+    const embed = new EmbedBuilder()
         .setColor('#CC0000')
-        .setTitle('Welcome to B3R RP Roleplay Server')
-        .setDescription(
-            '**يسعدنا انضمامك إلينا.**\n\n' +
-            'هل أنت مستعد لبدء مقابلة الانضمام إلى المقابلة الصوتية؟. ' +
-            'سيقوم أحد أعضاء فريق الإدارة بمراجعة إجاباتك وإرشادك خلال الخطوات التالية..\n\n' +
-            'يرجى التأكد من قراءة القوانين قبل البدء.'
+        .setTitle('🪪 أهلاً بيك في B3R RP')
+        .setDescription('يسعدنا انضمامك لمجتمعنا! قبل ما تبدأ، خد بالك من الآتي 👇')
+        .addFields(
+            {
+                name: '📋 خطوات المقابلة',
+                value: '`1` اضغط على الزرار تحت وهيتفتحلك تيكت خاص\n`2` هتوصلك أسئلة واحد ورا التاني\n`3` جاوب كل سؤال برسالة منفصلة وبالتفصيل'
+            },
+            {
+                name: '📖 قبل ما تبدأ',
+                value: '• اتأكد إنك قريت **قوانين السيرفر** كاملة\n• جاوب بصدق ووضوح، الإجابات المفصلة بتفرق معانا\n• بعد ما تخلص، فريق الإدارة هيراجع إجاباتك ويرد عليك'
+            }
         )
-        .setFooter({ text: '🪪 B3R RP' });
+        .setFooter({ text: 'B3R RP • نظام الـ Whitelist' })
+        .setTimestamp();
+
+    if (guild) embed.setThumbnail(guild.iconURL());
+
+    return embed;
 }
 
 // ✅ بناء Embed سؤال
@@ -209,12 +219,12 @@ client.on('interactionCreate', async (interaction) => {
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId('start_interview')
-                .setLabel('Start Interview')
+                .setLabel('ابدأ المقابلة')
                 .setEmoji('🪪')
                 .setStyle(ButtonStyle.Success)
         );
 
-        await interaction.channel.send({ embeds: [buildWelcomeEmbed()], components: [row] });
+        await interaction.channel.send({ embeds: [buildWelcomeEmbed(interaction.guild)], components: [row] });
         await interaction.reply({ content: '✅ تم إنشاء رسالة المقابلة.', ephemeral: true });
         return;
     }
@@ -424,5 +434,3 @@ client.on('messageCreate', async (message) => {
 });
 
 client.login(TOKEN);
-
-
