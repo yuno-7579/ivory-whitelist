@@ -1,8 +1,3 @@
-// ================================================
-// 🪪 IVORY RP — Whitelist Interview Bot
-//    Discord Coding Store | Claude Powered
-// ================================================
-
 const {
     Client, GatewayIntentBits, EmbedBuilder, SlashCommandBuilder,
     REST, Routes, ActionRowBuilder, ButtonBuilder, ButtonStyle,
