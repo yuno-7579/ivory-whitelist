@@ -120,10 +120,10 @@ function buildWelcomeEmbed() {
         .setColor('#CC0000')
         .setTitle('Welcome to B3R RP Roleplay Server')
         .setDescription(
-            '**We are glad to have you here**\n\n' +
-            'Ready to begin your whitelist interview? Click the button below to start your interview ticket. ' +
-            'A member of our admin team will review your answers and guide you through the next steps.\n\n' +
-            'Please make sure you have read the server rules before starting.'
+            '**يسعدنا انضمامك إلينا.**\n\n' +
+            'هل أنت مستعد لبدء مقابلة الانضمام إلى المقابلة الصوتية؟. ' +
+            'سيقوم أحد أعضاء فريق الإدارة بمراجعة إجاباتك وإرشادك خلال الخطوات التالية..\n\n' +
+            'يرجى التأكد من قراءة القوانين قبل البدء.'
         )
         .setFooter({ text: '🪪 B3R RP' });
 }
