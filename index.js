@@ -186,7 +186,7 @@ function buildWelcomeEmbed(guild) {
             { name: '📋 خطوات المقابلة', value: '`1` اضغط على الزرار تحت وهيتفتحلك تيكت خاص\n`2` هتوصلك أسئلة واحد ورا التاني\n`3` جاوب كل سؤال برسالة منفصلة وبالتفصيل' },
             { name: '📖 قبل ما تبدأ', value: '• اتأكد إنك قريت **قوانين السيرفر** كاملة\n• جاوب بصدق ووضوح، الإجابات المفصلة بتفرق معانا\n• بعد ما تخلص، فريق الإدارة هيراجع إجاباتك ويرد عليك' }
         )
-        .setFooter({ text: 'B3R RP • نظام الـ Whitelist' })
+        .setFooter({ text: 'Magic City • نظام الـ Whitelist' })
         .setTimestamp();
 
     if (guild) embed.setThumbnail(guild.iconURL());
@@ -204,7 +204,7 @@ function buildSummaryEmbed(member, answers) {
         .setColor('#CC0000')
         .setTitle('📋 ملخص إجابات المقابلة')
         .setDescription(`اللاعب: <@${member.id}>\nمرر على الإجابات وقرر القبول أو الرفض 👇`)
-        .setFooter({ text: 'B3R RP | نظام Whitelist' })
+        .setFooter({ text: 'Magic City | نظام Whitelist' })
         .setTimestamp();
 
     QUESTIONS.forEach((q, i) => {
@@ -321,7 +321,7 @@ client.on('interactionCreate', async (interaction) => {
                 { name: '🟢 Role', value: `<@&${WHITELIST_ROLE_ID}>`, inline: true }
             )
             .setThumbnail(interaction.guild.iconURL())
-            .setFooter({ text: 'B3R RP — Application System' })
+            .setFooter({ text: 'Magic City — Application System' })
             .setTimestamp();
 
         await interaction.reply({ embeds: [acceptEmbed] });
@@ -329,9 +329,9 @@ client.on('interactionCreate', async (interaction) => {
         try {
             const dmEmbed = new EmbedBuilder()
                 .setColor('#2ecc71')
-                .setTitle('🎉 مبروك، تم قبولك في B3R RP!')
+                .setTitle('🎉 مبروك، تم قبولك في Magic City!')
                 .setDescription('تقديمك اتقبل، وانت جاهز تدخل السيرفر في أي وقت. متشرفين بيك معانا! 🟣')
-                .setFooter({ text: 'B3R RP — Application System' })
+                .setFooter({ text: 'Magic City — Application System' })
                 .setTimestamp();
             await targetUser.send({ embeds: [dmEmbed] });
         } catch (err) {
@@ -412,7 +412,7 @@ client.on('interactionCreate', async (interaction) => {
                 .setColor(rejectStage === 3 ? '#7f0000' : '#e74c3c')
                 .setTitle(rejectStage === 3 ? '⛔ رفض دائم' : '❌ تم رفض تقديمك')
                 .setDescription(dmDescription)
-                .setFooter({ text: 'B3R RP — Application System' })
+                .setFooter({ text: 'Magic City — Application System' })
                 .setTimestamp();
             await targetUser.send({ embeds: [dmEmbed] });
         } catch (err) {
