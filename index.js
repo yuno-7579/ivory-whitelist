@@ -1,101 +1,118 @@
+// ================================================
+// 🤖 بوت السيرفر الجديد — ترحيب + تقديمات + تذاكر + لوجز
+//    Discord Coding Store | Claude Powered
+// ================================================
+
 const {
-    Client, GatewayIntentBits, EmbedBuilder, SlashCommandBuilder,
+    Client, GatewayIntentBits, Partials, EmbedBuilder, SlashCommandBuilder,
     REST, Routes, ActionRowBuilder, ButtonBuilder, ButtonStyle,
-    PermissionFlagsBits, ChannelType
+    StringSelectMenuBuilder, PermissionFlagsBits, ChannelType, AuditLogEvent
 } = require('discord.js');
 const fs = require('fs');
 
-// ✅ الإعدادات — هتيجي من Environment Variables (Railway)
+// ============================================================
+// ✅ الإعدادات — Environment Variables (Railway)
+// ============================================================
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
-const CATEGORY_ID = process.env.CATEGORY_ID; // الكاتيجوري اللي هتفتح فيها التيكتات
-const CITIZEN_ROLE_ID = process.env.CITIZEN_ROLE_ID; // رول Citizen بعد القبول
-const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID; // رول الأدمن اللي يشوف التيكتات
-const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID; // روم اللوجز — يبعت فيه الإجابات + النتيجة
 
-// ✅ قاعدة البيانات
-const DB_PATH = './database.json';
-function loadDB() {
-    if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, '{}');
-    return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+// --- الترحيب والـ auto role ---
+const WELCOME_CHANNEL_ID = process.env.WELCOME_CHANNEL_ID;
+const AUTO_ROLE_ID = process.env.AUTO_ROLE_ID; // رول بيتحط تلقائي لأي عضو جديد
+
+// --- التقديمات ---
+const APPLICATIONS_CATEGORY_ID = process.env.APPLICATIONS_CATEGORY_ID; // الكاتيجوري اللي هتتفتح فيها رومات التقديم
+const ADMIN_TEAM_ROLE_ID = process.env.ADMIN_TEAM_ROLE_ID;             // مين يشوف تقديمات الإدارة
+const APPLICATION_TEAM_ROLE_ID = process.env.APPLICATION_TEAM_ROLE_ID; // مين يشوف التقديمات العادية
+const PENDING_INTERVIEW_ROLE_ID = process.env.PENDING_INTERVIEW_ROLE_ID; // رول "معاينة" (انتظار المقابلة) — بيتحط في الحالتين
+
+// --- التذاكر ---
+const TICKETS_CATEGORY_ID = process.env.TICKETS_CATEGORY_ID;
+const SUPPORT_ROLE_ID = process.env.SUPPORT_ROLE_ID;
+
+// --- اللوجز (حط ID الروم بتاع كل نوع، سيبه فاضي لو مش عايزه) ---
+const LOG_CHANNELS = {
+    ban: process.env.LOG_BAN_CHANNEL,
+    unban: process.env.LOG_UNBAN_CHANNEL,
+    kick: process.env.LOG_KICK_CHANNEL,
+    timeout: process.env.LOG_TIMEOUT_CHANNEL,
+    changeNickname: process.env.LOG_CHANGE_NICKNAME_CHANNEL,
+    giveRole: process.env.LOG_GIVE_ROLE_CHANNEL,
+    removeRole: process.env.LOG_REMOVE_ROLE_CHANNEL,
+    roleDeleted: process.env.LOG_ROLE_DELETED_CHANNEL,
+    createChannel: process.env.LOG_CREATE_CHANNEL_CHANNEL,
+    deleteChannel: process.env.LOG_DELETE_CHANNEL_CHANNEL,
+    editChannel: process.env.LOG_EDIT_CHANNEL_CHANNEL,
+    channelPermissions: process.env.LOG_CHANNEL_PERMISSIONS_CHANNEL,
+    editMessage: process.env.LOG_EDIT_MESSAGE_CHANNEL,
+    deleteMessage: process.env.LOG_DELETE_MESSAGE_CHANNEL,
+    joinVoice: process.env.LOG_JOIN_VOICE_CHANNEL,
+    voiceLeft: process.env.LOG_VOICE_LEFT_CHANNEL,
+    voiceSwitched: process.env.LOG_VOICE_SWITCHED_CHANNEL,
+    voiceMove: process.env.LOG_VOICE_MOVE_CHANNEL,
+    disconnectVoice: process.env.LOG_DISCONNECT_VOICE_CHANNEL,
+    voiceStatus: process.env.LOG_VOICE_STATUS_CHANNEL,
+    security: process.env.LOG_SECURITY_CHANNEL,
+};
+
+// ============================================================
+// ✅ قواعد البيانات
+// ============================================================
+const TICKETS_DB_PATH = './tickets.json';
+const APPS_DB_PATH = './applications.json';
+function loadDB(path) {
+    if (!fs.existsSync(path)) fs.writeFileSync(path, '{}');
+    return JSON.parse(fs.readFileSync(path, 'utf8'));
 }
-function saveDB(data) {
-    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+function saveDB(path, data) {
+    fs.writeFileSync(path, JSON.stringify(data, null, 2));
 }
 
-// ✅ أسئلة المقابلة — عدّل أو زود زي ما تحب
-const QUESTIONS = [
-    {
-        title: '1️⃣ السؤال الأول — التعريف بالشخصية',
-        text: 'اكتب اسم شخصيتك الكامل (الاسم الأول والأخير) واللي هتستخدمه في الرولبلاي.'
-    },
-    {
-        title: '2️⃣ السؤال الثاني — تعريف الرولبلاي',
-        text: 'إيه هو الرولبلاي بالنسبة لك؟ اشرح بكلامك الخاص.'
-    },
-    {
-        title: '3️⃣ السؤال الثالث — تعريف قصة الشخصية',
-        text: 'اكتب قصة شخصيتك الاساسية و يجب ان لا تقل عن 150 كلمة.'
-    },
-    {
-        title: '4️⃣ السؤال الرابع — معنى ForcedRP',
-        text: 'إيه معنى "ForcedRP" وليه ممنوع في السيرفر؟'
-    },
-    {
-        title: '5️⃣ السؤال الخامس — معنى Meta Gaming',
-        text: 'إيه الفرق بين "Meta Gaming" و"In-Character / Out-of-Character"؟ اشرح بمثال.'
-    },
-    {
-        title: '6️⃣ السؤال السادس — موقف RP',
-        text: 'لو شخصيتك في السيرفر اتعرضت لحادث وكسرت رجلها، إزاي هتتعامل مع الموقف من ناحية الرولبلاي؟'
-    },
-    {
-        title: '7️⃣ السؤال السابع — السرقة والقتل',
-        text: 'إيه القوانين اللي بتحكم السرقة أو القتل في السيرفر؟ ولازم يكون فيه إيه قبل ما حد يعمل أي منهم؟'
-    },
-    {
-        title: '8️⃣ السؤال التامن — Fail RP',
-        text: 'وضّح معنى "Fail RP" واديني مثال واحد عليه.'
-    },
-    {
-        title: '9️⃣ السؤال التاسع — مخالفة قانون لحظة دخولك',
-        text: 'لو شفت لاعب تاني بيعمل مخالفة واضحة للقوانين قدامك، هتعمل إيه؟'
-    },
-    {
-        title: '1️⃣0️⃣ السؤال العاشر — RDM/VDM',
-        text: 'وضّح معنى "RDM/VDM" واديني مثالين عليه.'
-    },
+const activeApplications = new Map(); // channelId -> { userId, type, currentQuestion, answers }
+
+// ============================================================
+// ✅ أسئلة التقديمات — عدّل زي ما يناسبك
+// ============================================================
+const ADMIN_QUESTIONS = [
+    'ليه عايز تبقى جزء من فريق الإدارة؟',
+    'عندك خبرة سابقة في إدارة سيرفرات؟ لو أه، اشرح.',
+    'لو شفت عضو في فريق الإدارة بيستغل صلاحيته، هتعمل إيه؟',
+    'إيه أكتر وقت متاح عندك للمتابعة أسبوعيًا؟',
+    'اذكر موقف صعب واجهته وإزاي تعاملت معاه.',
 ];
 
-// ✅ تخزين حالة كل تيكت (الأسئلة اللي بيتم سؤالها)
-const activeInterviews = new Map(); // channelId -> { userId, currentQuestion, answers }
+const REGULAR_QUESTIONS = [
+    'اكتب اسمك الكامل اللي هتستخدمه في اللعبة.',
+    'عمرك كام، ومن أي محافظة؟',
+    'إزاي عرفت عن السيرفر؟',
+    'إيه اللي بتدور عليه في تجربة اللعب هنا؟',
+];
 
+// ============================================================
 // ✅ تشغيل البوت
+// ============================================================
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildModeration,
+        GatewayIntentBits.GuildVoiceStates,
         GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers
-    ]
+    ],
+    partials: [Partials.Message, Partials.Channel, Partials.GuildMember]
 });
 
-// ✅ الأوامر
 const commands = [
     new SlashCommandBuilder()
-        .setName('whitelist-setup')
-        .setDescription('إنشاء رسالة بدء المقابلة (للأدمن فقط)')
+        .setName('apply-setup')
+        .setDescription('إنشاء رسالة بدء التقديمات (للأدمن فقط)')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     new SlashCommandBuilder()
-        .setName('whitelist-reset')
-        .setDescription('تصفير حالة تيكت يوزر معين يدوياً (للأدمن فقط)')
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-        .addUserOption(option =>
-            option.setName('user')
-                .setDescription('اليوزر اللي هتصفّر حالته')
-                .setRequired(true)
-        )
+        .setName('tickets-setup')
+        .setDescription('إنشاء رسالة نظام التذاكر (للأدمن فقط)')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 ];
 
 client.once('ready', async () => {
@@ -109,327 +126,344 @@ client.once('ready', async () => {
     }
 });
 
-// ✅ بناء Embed رسالة البدء — منظمة بعربي بالكامل
-function buildWelcomeEmbed(guild) {
-    const embed = new EmbedBuilder()
-        .setColor('#CC0000')
-        .setTitle('🪪 أهلاً بيك في B3R RP')
-        .setDescription('يسعدنا انضمامك لمجتمعنا! قبل ما تبدأ، خد بالك من الآتي 👇')
-        .addFields(
-            {
-                name: '📋 خطوات المقابلة',
-                value: '`1` اضغط على الزرار تحت وهيتفتحلك تيكت خاص\n`2` هتوصلك أسئلة واحد ورا التاني\n`3` جاوب كل سؤال برسالة منفصلة وبالتفصيل'
-            },
-            {
-                name: '📖 قبل ما تبدأ',
-                value: '• اتأكد إنك قريت **قوانين السيرفر** كاملة\n• جاوب بصدق ووضوح، الإجابات المفصلة بتفرق معانا\n• بعد ما تخلص، فريق الإدارة هيراجع إجاباتك ويرد عليك'
-            }
-        )
-        .setFooter({ text: 'B3R RP • نظام الـ Whitelist' })
-        .setTimestamp();
-
-    if (guild) embed.setThumbnail(guild.iconURL());
-
-    return embed;
-}
-
-// ✅ بناء Embed سؤال
-function buildQuestionEmbed(index) {
-    const q = QUESTIONS[index];
-    return new EmbedBuilder()
-        .setColor('#CC0000')
-        .setTitle(q.title)
-        .setDescription(q.text)
-        .setFooter({ text: `السؤال ${index + 1} من ${QUESTIONS.length} | B3R RP` });
-}
-
-// ✅ بناء Embed نتيجة المقابلة (تجميع الإجابات للأدمن)
-function buildSummaryEmbed(member, answers) {
-    const embed = new EmbedBuilder()
-        .setColor('#CC0000')
-        .setTitle('📋 ملخص إجابات المقابلة')
-        .setDescription(`اللاعب: <@${member.id}>\nمرر على الإجابات وقرر القبول أو الرفض 👇`)
-        .setFooter({ text: 'B3R RP | نظام Whitelist' })
-        .setTimestamp();
-
-    QUESTIONS.forEach((q, i) => {
-        embed.addFields({
-            name: q.title,
-            value: answers[i] ? `\`\`${answers[i]}\`\`` : '`لم يتم الرد`'
-        });
-    });
-
-    return embed;
-}
-
-// ✅ بناء Embed نتيجة للاعب (قبول/رفض)
-function buildResultEmbed(accepted) {
-    if (accepted) {
-        return new EmbedBuilder()
-            .setColor('#00CC44')
-            .setTitle('✅ تم قبول طلبك!')
-            .setDescription(
-                'مبروك تم قبولك مبدأياً في مدينة **B3R RP**.\n\n' +
-                'يمكنك الانتظار إلى أقرب مقابلة صوتية 🎉'
-            )
-            .setFooter({ text: 'B3R RP | نظام Whitelist' })
-            .setTimestamp();
-    } else {
-        return new EmbedBuilder()
-            .setColor('#CC0000')
-            .setTitle('❌ تم رفض طلبك')
-            .setDescription(
-                'نأسف، تم رفض طلب الـ Whitelist بتاعك في **B3R RP**.\n\n' +
-                'يمكنك مراجعة قوانين السيرفر وإعادة التقديم بعد فترة من خلال فتح مقابلة جديدة.'
-            )
-            .setFooter({ text: 'B3R RP | نظام Whitelist' })
-            .setTimestamp();
+async function sendLog(type, embed) {
+    const channelId = LOG_CHANNELS[type];
+    if (!channelId) return;
+    try {
+        const channel = await client.channels.fetch(channelId);
+        await channel.send({ embeds: [embed] });
+    } catch (err) {
+        console.error(`❌ خطأ في إرسال لوج (${type}):`, err.message);
     }
 }
-
-// ✅ بناء Embed اللوج — الإجابات كاملة + النتيجة (يتبعت في روم اللوجز)
-function buildLogEmbed(member, answers, accepted, decidedBy) {
-    const embed = new EmbedBuilder()
-        .setColor(accepted ? '#00CC44' : '#CC0000')
-        .setTitle(accepted ? '✅ تم قبول طلب Whitelist' : '❌ تم رفض طلب Whitelist')
-        .setDescription(
-            `**اللاعب:** <@${member.id}> (${member.user.tag})\n` +
-            `**القرار بواسطة:** <@${decidedBy}>\n` +
-            `**الحالة:** ${accepted ? 'مقبول ✅' : 'مرفوض ❌'}`
-        )
-        .setThumbnail(member.user.displayAvatarURL())
-        .setFooter({ text: 'B3R RP | سجل المقابلات' })
-        .setTimestamp();
-
-    QUESTIONS.forEach((q, i) => {
-        embed.addFields({
-            name: q.title,
-            value: answers[i] ? `\`\`${answers[i]}\`\`` : '`لم يتم الرد`'
-        });
-    });
-
-    return embed;
+function baseEmbed(color, title) {
+    return new EmbedBuilder().setColor(color).setTitle(title).setTimestamp();
 }
 
-// ✅ التفاعلات
+// ============================================================
+// ✅ الترحيب + auto role
+// ============================================================
+client.on('guildMemberAdd', async (member) => {
+    if (AUTO_ROLE_ID) {
+        try { await member.roles.add(AUTO_ROLE_ID); } catch (err) { console.error('❌ خطأ في إضافة رول الدخول:', err.message); }
+    }
+    if (WELCOME_CHANNEL_ID) {
+        try {
+            const channel = await client.channels.fetch(WELCOME_CHANNEL_ID);
+            const embed = new EmbedBuilder()
+                .setColor('#2ecc71')
+                .setTitle('👋 عضو جديد انضم للسيرفر')
+                .setDescription(`أهلاً بيك ${member} في السيرفر! اقرأ القوانين وابدأ تقديمك من قناة التقديمات.`)
+                .setThumbnail(member.user.displayAvatarURL())
+                .setFooter({ text: `عضو رقم ${member.guild.memberCount}` })
+                .setTimestamp();
+            await channel.send({ content: `${member}`, embeds: [embed] });
+        } catch (err) {
+            console.error('❌ خطأ في إرسال رسالة الترحيب:', err.message);
+        }
+    }
+});
+
+// ============================================================
+// ✅ نظام التقديمات (إدارة / عادي)
+// ============================================================
+function buildApplyPanelEmbed() {
+    return new EmbedBuilder()
+        .setColor('#CC0000')
+        .setTitle('📋 التقديمات')
+        .setDescription('اختر نوع التقديم اللي عايز تقدمه من الأزرار تحت. هيتفتحلك روم خاص تجاوب فيه على الأسئلة.')
+        .setFooter({ text: 'السيرفر الجديد' });
+}
+function buildApplyButtons() {
+    return new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('apply_admin').setLabel('تقديم إدارة').setEmoji('🛡️').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('apply_regular').setLabel('تقديم عادي').setEmoji('🪪').setStyle(ButtonStyle.Success)
+    );
+}
+function buildQuestionEmbed(type, index) {
+    const questions = type === 'admin' ? ADMIN_QUESTIONS : REGULAR_QUESTIONS;
+    return new EmbedBuilder()
+        .setColor('#CC0000')
+        .setTitle(`سؤال ${index + 1} من ${questions.length}`)
+        .setDescription(questions[index]);
+}
+function buildSummaryEmbed(member, type, answers) {
+    const questions = type === 'admin' ? ADMIN_QUESTIONS : REGULAR_QUESTIONS;
+    const embed = new EmbedBuilder()
+        .setColor('#CC0000')
+        .setTitle(`📋 ملخص تقديم ${type === 'admin' ? 'إدارة' : 'عادي'}`)
+        .setDescription(`اللاعب: ${member}`)
+        .setTimestamp();
+    questions.forEach((q, i) => embed.addFields({ name: q, value: answers[i] || 'لم يتم الرد' }));
+    return embed;
+}
+function buildResultEmbed(accepted) {
+    return accepted
+        ? new EmbedBuilder().setColor('#2ecc71').setTitle('✅ تم قبول تقديمك!')
+            .setDescription('مبروك! اتحطلك رول معاينة، استنى فريق الإدارة يكلمك لتحديد موعد المقابلة.')
+        : new EmbedBuilder().setColor('#CC0000').setTitle('❌ تم رفض تقديمك')
+            .setDescription('للأسف اترفض تقديمك، تقدر تحاول تاني بعد فترة.');
+}
+
 client.on('interactionCreate', async (interaction) => {
 
-    // ─── SLASH COMMAND: /whitelist-setup ──────────
-    if (interaction.isChatInputCommand() && interaction.commandName === 'whitelist-setup') {
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('start_interview')
-                .setLabel('ابدأ المقابلة')
-                .setEmoji('🪪')
-                .setStyle(ButtonStyle.Success)
-        );
-
-        await interaction.channel.send({ embeds: [buildWelcomeEmbed(interaction.guild)], components: [row] });
-        await interaction.reply({ content: '✅ تم إنشاء رسالة المقابلة.', ephemeral: true });
+    // ─── SLASH: /apply-setup ──────────
+    if (interaction.isChatInputCommand() && interaction.commandName === 'apply-setup') {
+        await interaction.channel.send({ embeds: [buildApplyPanelEmbed()], components: [buildApplyButtons()] });
+        await interaction.reply({ content: '✅ تم إنشاء رسالة التقديمات.', ephemeral: true });
         return;
     }
 
-    // ─── SLASH COMMAND: /whitelist-reset ──────────
-    if (interaction.isChatInputCommand() && interaction.commandName === 'whitelist-reset') {
-        const targetUser = interaction.options.getUser('user');
-        const db = loadDB();
-
-        if (!db[targetUser.id]) {
-            return interaction.reply({ content: `⚠️ مفيش تيكت محفوظ لـ <@${targetUser.id}> أصلاً.`, ephemeral: true });
-        }
-
-        const oldChannelId = db[targetUser.id].channelId;
-        delete db[targetUser.id];
-        saveDB(db);
-        activeInterviews.delete(oldChannelId);
-
-        return interaction.reply({ content: `✅ تم تصفير حالة <@${targetUser.id}>، يقدر يفتح تيكت جديد دلوقتي.`, ephemeral: true });
+    // ─── SLASH: /tickets-setup ──────────
+    if (interaction.isChatInputCommand() && interaction.commandName === 'tickets-setup') {
+        const embed = new EmbedBuilder().setColor('#2B2D31').setTitle('🎫 نظام التذاكر')
+            .setDescription('اضغط الزرار تحت لفتح تذكرة دعم.');
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('open_ticket').setLabel('فتح تذكرة').setEmoji('🎫').setStyle(ButtonStyle.Primary)
+        );
+        await interaction.channel.send({ embeds: [embed], components: [row] });
+        await interaction.reply({ content: '✅ تم إنشاء رسالة التذاكر.', ephemeral: true });
+        return;
     }
 
-    // ─── BUTTON: Start Interview ──────────────────
-    if (interaction.isButton() && interaction.customId === 'start_interview') {
-        const db = loadDB();
+    // ─── BUTTON: بدء تقديم (إدارة أو عادي) ──────────
+    if (interaction.isButton() && (interaction.customId === 'apply_admin' || interaction.customId === 'apply_regular')) {
+        const type = interaction.customId === 'apply_admin' ? 'admin' : 'regular';
+        const db = loadDB(APPS_DB_PATH);
+        const key = interaction.user.id;
 
-        // تحقق لو عنده تيكت مفتوح خلاص
-        const existing = db[interaction.user.id];
+        const existing = db[key];
         if (existing && existing.status === 'open') {
-            // ✅ نتأكد إن الروم لسه موجود فعلاً (مش اتمسح يدوي بالغلط)
-            const channelStillExists = interaction.guild.channels.cache.has(existing.channelId)
+            const stillExists = interaction.guild.channels.cache.has(existing.channelId)
                 || await interaction.guild.channels.fetch(existing.channelId).catch(() => null);
-
-            if (channelStillExists) {
-                return interaction.reply({
-                    content: `⚠️ عندك تيكت مقابلة مفتوح بالفعل: <#${existing.channelId}>`,
-                    ephemeral: true
-                });
+            if (stillExists) {
+                return interaction.reply({ content: `⚠️ عندك تقديم مفتوح بالفعل: <#${existing.channelId}>`, ephemeral: true });
             }
-            // الروم مش موجود (اتمسح بالغلط) — نمسح الحالة القديمة ونكمل عادي
-            delete db[interaction.user.id];
-            activeInterviews.delete(existing.channelId);
-            saveDB(db);
+            delete db[key];
+            activeApplications.delete(existing.channelId);
         }
 
         await interaction.deferReply({ ephemeral: true });
 
-        // ✅ عمل التيكت
-        const ticketChannel = await interaction.guild.channels.create({
-            name: `مقابلة-${interaction.user.username}`,
+        const reviewRoleId = type === 'admin' ? ADMIN_TEAM_ROLE_ID : APPLICATION_TEAM_ROLE_ID;
+        const appChannel = await interaction.guild.channels.create({
+            name: `تقديم-${type === 'admin' ? 'اداره' : 'عادي'}-${interaction.user.username}`,
             type: ChannelType.GuildText,
-            parent: CATEGORY_ID,
+            parent: APPLICATIONS_CATEGORY_ID,
             permissionOverwrites: [
-                {
-                    id: interaction.guild.roles.everyone,
-                    deny: [PermissionFlagsBits.ViewChannel]
-                },
-                {
-                    id: interaction.user.id,
-                    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory]
-                },
-                {
-                    id: ADMIN_ROLE_ID,
-                    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory]
-                }
+                { id: interaction.guild.roles.everyone, deny: [PermissionFlagsBits.ViewChannel] },
+                { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+                { id: reviewRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
             ]
         });
 
-        // حفظ حالة التيكت
-        db[interaction.user.id] = {
-            channelId: ticketChannel.id,
-            status: 'open',
-            currentQuestion: 0,
-            answers: []
-        };
-        saveDB(db);
+        db[key] = { channelId: appChannel.id, type, status: 'open', answers: [] };
+        saveDB(APPS_DB_PATH, db);
+        activeApplications.set(appChannel.id, { userId: interaction.user.id, type, currentQuestion: 0, answers: [] });
 
-        activeInterviews.set(ticketChannel.id, {
-            userId: interaction.user.id,
-            currentQuestion: 0,
-            answers: []
+        await appChannel.send({
+            content: `أهلاً <@${interaction.user.id}> 👋\nبدأ تقديمك (${type === 'admin' ? 'إدارة' : 'عادي'}). جاوب على كل سؤال برسالة منفصلة.`,
+            embeds: [buildQuestionEmbed(type, 0)]
         });
-
-        // رسالة ترحيب + أول سؤال
-        await ticketChannel.send({
-            content: `أهلاً <@${interaction.user.id}> 👋\nبدأت مقابلة الـ Whitelist بتاعتك. جاوب على كل سؤال برسالة منفصلة.`,
-            embeds: [buildQuestionEmbed(0)]
-        });
-
-        await interaction.editReply({ content: `✅ تم فتح تيكت المقابلة: <#${ticketChannel.id}>` });
+        await interaction.editReply({ content: `✅ تم فتح تقديمك: <#${appChannel.id}>` });
         return;
     }
 
-    // ─── BUTTON: Accept / Reject ──────────────────
-    if (interaction.isButton() && (interaction.customId.startsWith('accept_') || interaction.customId.startsWith('reject_'))) {
-        const targetUserId = interaction.customId.split('_')[1];
-        const accepted = interaction.customId.startsWith('accept_');
-        const db = loadDB();
+    // ─── BUTTON: قبول / رفض تقديم ──────────
+    if (interaction.isButton() && (interaction.customId.startsWith('app_accept_') || interaction.customId.startsWith('app_reject_'))) {
+        const accepted = interaction.customId.startsWith('app_accept_');
+        const targetUserId = interaction.customId.split('_')[2];
+        const db = loadDB(APPS_DB_PATH);
+        const appData = db[targetUserId];
+        if (!appData) return interaction.reply({ content: '❌ بيانات التقديم غير موجودة.', ephemeral: true });
 
-        const ticketData = db[targetUserId];
-        if (!ticketData) {
-            return interaction.reply({ content: '❌ بيانات التيكت غير موجودة.', ephemeral: true });
-        }
-
-        // إعطاء الرول لو قبول
-        if (accepted) {
+        if (accepted && PENDING_INTERVIEW_ROLE_ID) {
             try {
                 const member = await interaction.guild.members.fetch(targetUserId);
-                await member.roles.add(CITIZEN_ROLE_ID);
-            } catch (err) {
-                console.error('❌ خطأ في إعطاء الرول:', err);
-            }
+                await member.roles.add(PENDING_INTERVIEW_ROLE_ID);
+            } catch (err) { console.error('❌ خطأ في إضافة رول المعاينة:', err.message); }
         }
 
-        // بعت النتيجة للاعب
         try {
             const member = await interaction.guild.members.fetch(targetUserId);
             await member.send({ embeds: [buildResultEmbed(accepted)] }).catch(() => {
-                // لو الخاص مقفول، بعت في التيكت
                 interaction.channel.send({ content: `<@${targetUserId}>`, embeds: [buildResultEmbed(accepted)] });
             });
-        } catch (err) {
-            console.error('❌ خطأ في إرسال النتيجة:', err);
-        }
+        } catch (err) { console.error('❌ خطأ في إرسال النتيجة:', err.message); }
 
-        // تحديث الرسالة وتعطيل الأزرار
-        const resultText = accepted ? '✅ تم قبول الطلب' : '❌ تم رفض الطلب';
         const disabledRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('accept_done').setLabel('قبول').setEmoji('✅').setStyle(ButtonStyle.Success).setDisabled(true),
-            new ButtonBuilder().setCustomId('reject_done').setLabel('رفض').setEmoji('❌').setStyle(ButtonStyle.Danger).setDisabled(true)
+            new ButtonBuilder().setCustomId('app_done_accept').setLabel('قبول').setEmoji('✅').setStyle(ButtonStyle.Success).setDisabled(true),
+            new ButtonBuilder().setCustomId('app_done_reject').setLabel('رفض').setEmoji('❌').setStyle(ButtonStyle.Danger).setDisabled(true)
         );
-
         await interaction.update({ components: [disabledRow] });
-        await interaction.followUp({ content: `${resultText} بواسطة <@${interaction.user.id}>` });
+        await interaction.followUp({ content: `${accepted ? '✅ تم القبول' : '❌ تم الرفض'} بواسطة <@${interaction.user.id}>` });
 
-        // ✅ إرسال اللوج (الإجابات + النتيجة) لروم اللوجز
-        if (LOG_CHANNEL_ID) {
-            try {
-                const logChannel = await client.channels.fetch(LOG_CHANNEL_ID);
-                const member = await interaction.guild.members.fetch(targetUserId);
-                const logEmbed = buildLogEmbed(member, ticketData.answers || [], accepted, interaction.user.id);
-                await logChannel.send({ embeds: [logEmbed] });
-            } catch (err) {
-                console.error('❌ خطأ في إرسال اللوج:', err);
-            }
-        }
+        appData.status = accepted ? 'accepted' : 'rejected';
+        saveDB(APPS_DB_PATH, db);
 
-        // تحديث الحالة
-        ticketData.status = accepted ? 'accepted' : 'rejected';
-        saveDB(db);
-
-        // قفل التيكت بعد 10 ثواني
         setTimeout(async () => {
-            try {
-                await interaction.channel.delete();
-            } catch (e) { }
+            try { await interaction.channel.delete(); } catch (e) { }
         }, 10000);
+        return;
+    }
 
+    // ─── BUTTON: فتح تذكرة ──────────────────
+    if (interaction.isButton() && interaction.customId === 'open_ticket') {
+        const db = loadDB(TICKETS_DB_PATH);
+        const key = interaction.user.id;
+        const existing = db[key];
+        if (existing && existing.status === 'open') {
+            return interaction.reply({ content: `⚠️ عندك تذكرة مفتوحة بالفعل: <#${existing.channelId}>`, ephemeral: true });
+        }
+        await interaction.deferReply({ ephemeral: true });
+        const ticketChannel = await interaction.guild.channels.create({
+            name: `تذكرة-${interaction.user.username}`,
+            type: ChannelType.GuildText,
+            parent: TICKETS_CATEGORY_ID,
+            permissionOverwrites: [
+                { id: interaction.guild.roles.everyone, deny: [PermissionFlagsBits.ViewChannel] },
+                { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+                { id: SUPPORT_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
+            ]
+        });
+        db[key] = { channelId: ticketChannel.id, status: 'open' };
+        saveDB(TICKETS_DB_PATH, db);
+        const closeRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق التذكرة').setEmoji('🔒').setStyle(ButtonStyle.Danger)
+        );
+        await ticketChannel.send({ content: `<@${interaction.user.id}> | <@&${SUPPORT_ROLE_ID}>`, embeds: [baseEmbed('#2B2D31', '🎫 تذكرة دعم').setDescription('اشرح مشكلتك أو طلبك وانتظر الرد.')], components: [closeRow] });
+        await interaction.editReply({ content: `✅ تم فتح تذكرتك: <#${ticketChannel.id}>` });
+        return;
+    }
+
+    // ─── BUTTON: إغلاق تذكرة ──────────────────
+    if (interaction.isButton() && interaction.customId === 'close_ticket') {
+        const db = loadDB(TICKETS_DB_PATH);
+        const ownerId = Object.keys(db).find(uid => db[uid].channelId === interaction.channel.id);
+        await interaction.reply({ content: '🔒 هيتم إغلاق التذكرة خلال 5 ثواني...' });
+        if (ownerId) { db[ownerId].status = 'closed'; saveDB(TICKETS_DB_PATH, db); }
+        setTimeout(async () => { try { await interaction.channel.delete(); } catch (e) { } }, 5000);
         return;
     }
 });
 
-// ✅ استقبال إجابات الأسئلة كرسائل عادية
+// ============================================================
+// ✅ استقبال إجابات التقديم كرسائل عادية
+// ============================================================
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
+    const app = activeApplications.get(message.channel.id);
+    if (!app) return;
+    if (message.author.id !== app.userId) return;
 
-    const interview = activeInterviews.get(message.channel.id);
-    if (!interview) return;
-    if (message.author.id !== interview.userId) return;
+    app.answers.push(message.content);
+    const db = loadDB(APPS_DB_PATH);
+    if (db[app.userId]) db[app.userId].answers = app.answers;
 
-    // حفظ الإجابة
-    interview.answers.push(message.content);
-
-    const db = loadDB();
-    if (db[interview.userId]) {
-        db[interview.userId].answers = interview.answers;
-        db[interview.userId].currentQuestion = interview.currentQuestion + 1;
-    }
-
-    // لو فيه سؤال جاي
-    if (interview.currentQuestion + 1 < QUESTIONS.length) {
-        interview.currentQuestion++;
-        if (db[interview.userId]) db[interview.userId].currentQuestion = interview.currentQuestion;
-        saveDB(db);
-
-        await message.channel.send({ embeds: [buildQuestionEmbed(interview.currentQuestion)] });
+    const questions = app.type === 'admin' ? ADMIN_QUESTIONS : REGULAR_QUESTIONS;
+    if (app.currentQuestion + 1 < questions.length) {
+        app.currentQuestion++;
+        saveDB(APPS_DB_PATH, db);
+        await message.channel.send({ embeds: [buildQuestionEmbed(app.type, app.currentQuestion)] });
     } else {
-        // ✅ خلصت كل الأسئلة — بعت الملخص للأدمن مع أزرار القبول/الرفض
-        saveDB(db);
-
-        const member = await message.guild.members.fetch(interview.userId);
-        const summaryEmbed = buildSummaryEmbed(member, interview.answers);
-
+        saveDB(APPS_DB_PATH, db);
+        const member = await message.guild.members.fetch(app.userId);
+        const reviewRoleId = app.type === 'admin' ? ADMIN_TEAM_ROLE_ID : APPLICATION_TEAM_ROLE_ID;
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`accept_${interview.userId}`).setLabel('قبول').setEmoji('✅').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`reject_${interview.userId}`).setLabel('رفض').setEmoji('❌').setStyle(ButtonStyle.Danger)
+            new ButtonBuilder().setCustomId(`app_accept_${app.userId}`).setLabel('قبول').setEmoji('✅').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`app_reject_${app.userId}`).setLabel('رفض').setEmoji('❌').setStyle(ButtonStyle.Danger)
         );
-
         await message.channel.send({
-            content: `<@&${ADMIN_ROLE_ID}> المقابلة خلصت ✅ راجع الإجابات واتخذ القرار 👇`,
-            embeds: [summaryEmbed],
+            content: `<@&${reviewRoleId}> التقديم خلص ✅ راجعوا الإجابات واتخذوا القرار 👇`,
+            embeds: [buildSummaryEmbed(member, app.type, app.answers)],
             components: [row]
         });
+        activeApplications.delete(message.channel.id);
+    }
+});
 
-        // إزالة من القائمة النشطة (هيتم القرار من خلال الأزرار)
-        activeInterviews.delete(message.channel.id);
+// ============================================================
+// ✅ اللوجز (بان، كيك، رولات، رومات، رسايل، فويس)
+// ============================================================
+client.on('guildAuditLogEntryCreate', async (entry) => {
+    const executor = entry.executor ? `<@${entry.executor.id}>` : 'غير معروف';
+    switch (entry.action) {
+        case AuditLogEvent.MemberBanAdd:
+            await sendLog('ban', baseEmbed('#e74c3c', '🔨 حظر عضو').setDescription(`**العضو:** <@${entry.targetId}>\n**بواسطة:** ${executor}\n**السبب:** ${entry.reason || 'بدون سبب'}`));
+            break;
+        case AuditLogEvent.MemberBanRemove:
+            await sendLog('unban', baseEmbed('#2ecc71', '✅ فك حظر عضو').setDescription(`**العضو:** <@${entry.targetId}>\n**بواسطة:** ${executor}`));
+            break;
+        case AuditLogEvent.MemberKick:
+            await sendLog('kick', baseEmbed('#e67e22', '👢 طرد عضو').setDescription(`**العضو:** <@${entry.targetId}>\n**بواسطة:** ${executor}`));
+            break;
+        case AuditLogEvent.MemberUpdate:
+            for (const change of entry.changes || []) {
+                if (change.key === 'communication_disabled_until') {
+                    await sendLog('timeout', baseEmbed('#f1c40f', '⏱️ تايم أوت').setDescription(`**العضو:** <@${entry.targetId}>\n**بواسطة:** ${executor}`));
+                }
+                if (change.key === 'nick') {
+                    await sendLog('changeNickname', baseEmbed('#3498db', '✏️ تغيير نيك نيم').setDescription(`**العضو:** <@${entry.targetId}>\n**بواسطة:** ${executor}`));
+                }
+            }
+            break;
+        case AuditLogEvent.MemberRoleUpdate:
+            for (const change of entry.changes || []) {
+                if (change.key === '$add') for (const role of change.new || []) await sendLog('giveRole', baseEmbed('#2ecc71', '➕ إضافة رول').setDescription(`**العضو:** <@${entry.targetId}>\n**الرول:** <@&${role.id}>\n**بواسطة:** ${executor}`));
+                if (change.key === '$remove') for (const role of change.new || []) await sendLog('removeRole', baseEmbed('#e74c3c', '➖ إزالة رول').setDescription(`**العضو:** <@${entry.targetId}>\n**الرول:** <@&${role.id}>\n**بواسطة:** ${executor}`));
+            }
+            break;
+        case AuditLogEvent.RoleDelete:
+            await sendLog('roleDeleted', baseEmbed('#e74c3c', '🗑️ حذف رول').setDescription(`**بواسطة:** ${executor}`));
+            break;
+        case AuditLogEvent.ChannelCreate:
+            await sendLog('createChannel', baseEmbed('#2ecc71', '📁 إنشاء روم').setDescription(`**بواسطة:** ${executor}`));
+            break;
+        case AuditLogEvent.ChannelDelete:
+            await sendLog('deleteChannel', baseEmbed('#e74c3c', '🗑️ حذف روم').setDescription(`**بواسطة:** ${executor}`));
+            break;
+        case AuditLogEvent.ChannelUpdate:
+            await sendLog('editChannel', baseEmbed('#3498db', '✏️ تعديل روم').setDescription(`**الروم:** <#${entry.targetId}>\n**بواسطة:** ${executor}`));
+            break;
+        case AuditLogEvent.ChannelOverwriteCreate:
+        case AuditLogEvent.ChannelOverwriteUpdate:
+        case AuditLogEvent.ChannelOverwriteDelete:
+            await sendLog('channelPermissions', baseEmbed('#9b59b6', '🔐 تعديل صلاحيات روم').setDescription(`**الروم:** <#${entry.targetId}>\n**بواسطة:** ${executor}`));
+            break;
+        case AuditLogEvent.MemberDisconnect:
+            await sendLog('disconnectVoice', baseEmbed('#e74c3c', '🔌 فصل عضو من الفويس').setDescription(`**بواسطة:** ${executor}`));
+            break;
+        case AuditLogEvent.MemberMove:
+            await sendLog('voiceMove', baseEmbed('#3498db', '➡️ نقل عضو في الفويس').setDescription(`**بواسطة:** ${executor}`));
+            break;
+    }
+});
+
+client.on('messageUpdate', async (oldMsg, newMsg) => {
+    if (newMsg.author?.bot || oldMsg.content === newMsg.content) return;
+    await sendLog('editMessage', baseEmbed('#3498db', '✏️ تعديل رسالة')
+        .setDescription(`**العضو:** ${newMsg.author}\n**الروم:** <#${newMsg.channelId}>`)
+        .addFields({ name: 'قبل', value: oldMsg.content?.slice(0, 1000) || '—' }, { name: 'بعد', value: newMsg.content?.slice(0, 1000) || '—' }));
+});
+client.on('messageDelete', async (msg) => {
+    if (msg.author?.bot) return;
+    await sendLog('deleteMessage', baseEmbed('#e74c3c', '🗑️ حذف رسالة')
+        .setDescription(`**العضو:** ${msg.author || 'غير معروف'}\n**الروم:** <#${msg.channelId}>\n**المحتوى:** ${msg.content?.slice(0, 1000) || '—'}`));
+});
+
+client.on('voiceStateUpdate', async (oldState, newState) => {
+    const member = newState.member || oldState.member;
+    if (!oldState.channelId && newState.channelId) {
+        return sendLog('joinVoice', baseEmbed('#2ecc71', '🎙️ دخول فويس').setDescription(`**العضو:** ${member}\n**الروم:** <#${newState.channelId}>`));
+    }
+    if (oldState.channelId && !newState.channelId) {
+        return sendLog('voiceLeft', baseEmbed('#e67e22', '🚪 خروج من الفويس').setDescription(`**العضو:** ${member}\n**الروم:** <#${oldState.channelId}>`));
+    }
+    if (oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId) {
+        return sendLog('voiceSwitched', baseEmbed('#3498db', '🔀 تبديل فويس').setDescription(`**العضو:** ${member}\n**من:** <#${oldState.channelId}>\n**إلى:** <#${newState.channelId}>`));
+    }
+    if (oldState.channel?.status !== newState.channel?.status) {
+        await sendLog('voiceStatus', baseEmbed('#9b59b6', '💬 تغيير حالة الفويس').setDescription(`**الروم:** <#${newState.channelId}>`));
     }
 });
 
