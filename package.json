@@ -1,12 +1,12 @@
 {
-  "name": "ivory-whitelist-bot",
+  "name": "MagicCity-bot",
   "version": "1.0.0",
-  "description": "نظام مقابلة Whitelist لسيرفر IVORY RP",
+  "description": "بوت ترحيب + تقديمات (إدارة وعادية) + تذاكر + لوجز",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^14.0.0"
+    "discord.js": "^14.14.1"
   }
 }
