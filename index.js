@@ -225,7 +225,7 @@ function buildInterviewResultEmbed(accepted) {
     return new EmbedBuilder()
         .setColor('#CC0000')
         .setTitle('❌ تم رفض طلبك')
-        .setDescription('نأسف، تم رفض طلب الـ Whitelist بتاعك في **B3R RP**.\n\nيمكنك مراجعة قوانين السيرفر وإعادة التقديم بعد فترة من خلال فتح مقابلة جديدة.')
+        .setDescription('نأسف، تم رفض طلب الـ Whitelist بتاعك في **Magic City**.\n\nيمكنك مراجعة قوانين السيرفر وإعادة التقديم بعد فترة من خلال فتح مقابلة جديدة.')
         .setFooter({ text: 'Magic City | نظام Whitelist' })
         .setTimestamp();
 }
